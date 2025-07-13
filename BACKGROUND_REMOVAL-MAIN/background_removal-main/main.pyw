@@ -24,7 +24,8 @@ while True:
     if not success:
         break
 
-    imgOut = segmentor.removeBG(img, imgList[indexImg], threshold=0.8)
+    # Удаляем фон, не указывая threshold
+    imgOut = segmentor.removeBG(img, imgList[indexImg])
 
     # Расчёт FPS вручную
     fps_end = time.time()
