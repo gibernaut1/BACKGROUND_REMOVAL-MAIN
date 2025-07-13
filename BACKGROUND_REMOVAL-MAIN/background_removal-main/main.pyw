@@ -1,20 +1,21 @@
-# Программа: Замена фона с пост-обработкой маски и сглаживанием краёв
+# Программа: Замена фона с помощью cvzone с улучшенной визуализацией
 
 import cv2
 import cvzone
 from cvzone.SelfiSegmentationModule import SelfiSegmentation
 import os
 import time
-import numpy as np
 
-cap = cv2.VideoCapture(0)  # Подключаем веб-камеру
+# Инициализация камеры
+cap = cv2.VideoCapture(0)
 cap.set(3, 640)
 cap.set(4, 480)
 
+# Сегментатор
 segmentor = SelfiSegmentation()
 fps_start = time.time()
 
-# Загружаем все изображения из папки img
+# Загрузка фоновых изображений
 listImg = os.listdir("img")
 imgList = [cv2.imread(f"img/{imgPath}") for imgPath in listImg]
 indexImg = 0
@@ -24,33 +25,25 @@ while True:
     if not success:
         break
 
-    # Масштабируем фон
+    # Масштабирование текущего фона
     bgResized = cv2.resize(imgList[indexImg], (img.shape[1], img.shape[0]))
 
-    # Получаем альфа-маску
-    mask = segmentor.segment(img, draw=False)  # 0 — фон, 1 — человек
-    mask = cv2.GaussianBlur(mask, (15, 15), 0)  # Сглаживаем границу
-    mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)  # Конвертируем в 3 канала
-    mask = mask / 255.0  # Нормализуем в диапазон [0..1]
+    # Замена фона (метод возвращает итоговое изображение)
+    imgOut = segmentor.removeBG(img, bgResized)
 
-    # Комбинируем изображение и фон с учётом маски
-    foreground = img * mask
-    background = bgResized * (1 - mask)
-    imgOut = cv2.addWeighted(foreground.astype(np.uint8), 1, background.astype(np.uint8), 1, 0)
+    # Применим размытие краёв результата, чтобы сгладить переходы
+    imgOut = cv2.bilateralFilter(imgOut, d=9, sigmaColor=75, sigmaSpace=75)
 
-    # Расчёт FPS
+    # Расчёт и вывод FPS
     fps_end = time.time()
     fps = 1 / (fps_end - fps_start)
     fps_start = fps_end
-
-    # Выводим FPS
     cv2.putText(imgOut, f'FPS: {int(fps)}', (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    # Отображаем изображение
+    # Отображение результата
     cv2.imshow("Image", imgOut)
 
-    # Управление клавишами
     key = cv2.waitKey(1)
     if key == ord("a"):
         indexImg = (indexImg - 1) % len(imgList)
